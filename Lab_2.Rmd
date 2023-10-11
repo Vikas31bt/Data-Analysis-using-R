@@ -1,0 +1,338 @@
+---
+title: "Assignment 2 - Visualization"
+author: "Vikas kaushik"
+date: "October 07 2023"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Assignment 2 - Visualization
+```{r}
+# get the path of the current working directory
+getwd()
+
+# Call all the important libraries for this assignment
+library (tidyverse)
+library (cowplot)
+library (datasauRus)
+
+```
+
+The dataset can be accessed here: https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29
+
+The phenotype attributions are as follows: 
+
+1) ID number
+2) Diagnosis (M = malignant, B = benign)
+3-32)
+
+Ten real-valued features are computed for each cell nucleus:
+
+a) radius (mean of distances from center to points on the perimeter)
+b) texture (standard deviation of gray-scale values)
+c) perimeter
+d) area
+e) smoothness (local variation in radius lengths)
+f) compactness (perimeter^2 / area - 1.0)
+g) concavity (severity of concave portions of the contour)
+h) concave points (number of concave portions of the contour)
+i) symmetry
+j) fractal dimension ("coastline approximation" - 1)
+
+Here is some code to read in the dataset
+
+```{r}
+# Read the CSV file "breastCancer.csv" into a object bCancer
+bCancer <- read.csv("breastCancer.csv", header = T, stringsAsFactors = T)
+
+# Display the structure of the bCancer data frame
+str(bCancer)
+
+# Provide a summary of the bCancer data frame
+summary(bCancer)
+
+# Display the first 5 rows of the bCancer data frame
+head(bCancer, 5)
+
+```
+
+1. The aesthetic of the plot can be defined in both the main `ggplot()` function or the plot specific geometry function. What advantage does this redundancy allow for? Give an example of this use case. 
+
+Ans`Redundancy in defining aesthetics at both the main ggplot() level and the specific geometry (geom_*()) level provides a balance between global consistency and local customization. Global aesthetics set in ggplot() apply universally to all layers, ensuring a cohesive look, while local aesthetics in geom_*() allow for specific adjustments or highlights within individual layers. This flexibility is particularly valuable in creating complex and informative visualizations.`Example of this use case:
+
+```{r}
+
+# Defining aesthetics in ggplot() for global settings
+plot1 <- ggplot(bCancer, aes(x = radius_mean, y = concavity_mean, color = diagnosis)) +
+
+  # First layer: Scatter plot with specific aesthetics
+  geom_point(size = 1, alpha = 0.8) +
+  
+  # Second layer: Line plot with different aesthetics
+  geom_line(size = 1, linetype = "dashed") +
+  
+  # Scale y axis 
+  scale_y_continuous(name = "Concavity Mean",
+                     breaks = seq(0, 0.5, by = 0.1))+
+  
+  # Global title and axis labels
+  labs(title = "Scatter and Line Plot", x = "Radius Mean")
+
+  
+# Global aesthetics set in ggplot()
+plot2 <- ggplot(bCancer, aes(x = radius_mean, y = concavity_mean)) +
+  
+  # Layer 1: Scatter plot with local aesthetics
+  geom_point(color = "red", size = 2, alpha = 0.1) +
+  
+  # Layer 2: Line plot with different local aesthetics
+  geom_line(color = "black", linetype = "dashed", size = 0.5) +
+  
+  # Global labels and theme
+  labs(title = "Scatter and Line Plot", y = "Concavity Mean")+
+  
+  # Scale x axis
+  scale_x_continuous(name = "Radius Mean",
+                     breaks = seq(0, 30, by = 3))
+
+Defining_aesthetics <- plot_grid(plot1, plot2, labels = c("A", "B"), ncol = 1)
+
+Defining_aesthetics
+
+```
+
+2. What is the difference between a bar plot and a histogram? Which is more appropriate when I am plotting the heights of all students in this course?
+
+Ans`Histograms are employed when dealing with continuous data, usually numeric, to visualize the distribution of values across different bins or intervals. Bar charts, on the other hand, are suited for categorical data, where each bar represents a distinct category or group. In the context of plotting the heights of all students, I would use a histogram because height is a continuous variable, and a histogram allows me to observe the distribution of heights. A bar chart, designed for categorical data, wouldn't be the most suitable choice for visualizing the distribution of continuous variables like heights.`
+
+
+```{r}
+# Set up the basic ggplot object with data and aesthetic mapping
+Bar <- ggplot(bCancer, aes(x = diagnosis, fill = diagnosis)) +
+  
+  # Add the bar chart layer with custom aesthetics
+  geom_bar(alpha = 0.7) +
+  
+  # #Customize colors "red" is for malignant, and "green" is for benign.
+  scale_fill_manual(values = c("green", "red")) +
+  
+  # Add labels and title to the plot
+  labs(title = "Bar Plot", x = "Diagnosis", y = "Count") +
+  
+  # Scale x-axis
+  scale_x_discrete(name = "Diagnosis",
+                   labels = c("Benign", "Malignant"))
+
+
+# Set up the basic ggplot object with data and aesthetic mapping
+Hist <- ggplot(bCancer, aes(x = radius_mean, fill = diagnosis)) +
+  
+  # Add the histogram layer with custom aesthetics
+  geom_histogram(binwidth = 5, alpha = 0.7) +
+  
+  #Customize colors "red" is for malignant, and "green" is for benign.
+  scale_fill_manual(values = c("green", "red")) +
+  
+  # Add labels and title to the plot
+  labs(title = "Histogram", x = "Radius_mean", y = "Frequency")+
+  
+  # Scale x axis
+  scale_x_continuous(name = "Radius Mean",
+                     breaks = seq(0, 30, by = 5))
+
+# Set up the basic ggplot object with data and aesthetic mapping
+Box <- ggplot(bCancer, aes(x = diagnosis, y = radius_mean, fill = diagnosis)) +
+
+  # Add the boxplot layer
+  geom_boxplot() +
+  
+  # Add labels and title to the plot
+  labs(title = "Boxplot", y = "Radius Mean")+
+  
+  # #Customize colors "red" is for malignant, and "green" is for benign.
+  scale_fill_manual(values = c("green", "red")) +
+  
+  # Scale x-axis
+  scale_x_discrete(name = "Diagnosis",
+                   labels = c("Benign", "Malignant"))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")+
+
+  # Add horizontal lines at y = 6.5 and y = 8.5
+  geom_hline(yintercept = 6.5) +
+  geom_hline(yintercept = 8.5)
+
+# Set up the basic ggplot object with data and aesthetic mapping
+Violin <- ggplot(bCancer, aes(x = diagnosis, y = radius_mean, fill = diagnosis)) +
+  
+  # Add the boxplot layer
+  geom_violin() +
+  
+  # Add labels and title to the plot
+  labs(title = "Violin Plot", y = "Radius Mean")+
+  
+  # #Customize colors "red" is for malignant, and "green" is for benign.
+  scale_fill_manual(values = c("green", "red")) +
+  
+# Scale x-axis
+  scale_x_discrete(name = "Diagnosis",
+                   labels = c("Benign", "Malignant"))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")
+
+
+# Arrange plots in a 2,2 grid
+Bar_Hist_Box_Violin <- plot_grid(Bar, Hist, Box, Violin, labels = c("A", "B", "C", "D"), ncol = 2)
+
+Bar_Hist_Box_Violin
+
+```
+3. When comparing the mean radius between diagnosis groups, what plot type would be most appropriate? Justify your response by relating back to the type of data we are portraying. Then, create the plot. Make sure to format the plot properly such as labeling the titles and axis. 
+
+Ans`For comparing the mean radius between diagnosis groups (Malignant and Benign), suitable plot type is going to be grouped bar chart. Grouped bar charts are effective for visualizing and comparing means or other summary statistics across different categories`
+
+```{r}
+# Set up the basic ggplot object with data and aesthetic mapping
+GBar <- ggplot(bCancer, aes(x = diagnosis, y = radius_mean, fill = diagnosis)) +
+  
+  # Add the bar chart layer with custom aesthetics
+  geom_bar(alpha = 0.7, stat = "summary", fun = "mean") +
+  
+  # Customize colors "red" is for malignant, and "green" is for benign
+  scale_fill_manual(values = c("green", "red")) +
+  
+  # Add labels and title to the plot
+  labs(title = "Comparing the mean Radius") +
+  
+  # Scale x-axis
+  scale_x_discrete(name = "Diagnosis",
+                   labels = c("Benign", "Malignant"))+
+  
+  # Scale y axis ("Mean Radius" is continuous)
+  scale_y_continuous(name = "Mean Radius",
+                     breaks = seq(0, 20, by = 4))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")
+  
+
+# Set up the basic ggplot object with data and aesthetic mapping
+Jitter <- ggplot(bCancer, aes(x = diagnosis, y = radius_mean, colour = diagnosis)) +
+  
+  # Add jitter points for each data point with custom parameters
+  geom_jitter(
+    width = 0.3,      # Adjust the width of the jitter
+    height = 0.05,    # Adjust the height of the jitter
+    shape = 16,       # Set the shape of the points (16 for circles)
+    alpha = 0.7       # Set the transparency of the points
+  ) +
+ 
+  # Customize colors "red" is for malignant, and "green" is for benign
+  scale_colour_manual(values = c("green", "red")) + 
+  
+  # Add labels and title to the plot
+  labs(title = "Comparing the mean Radius") +
+  
+  # Scale x-axis
+  scale_x_discrete(name = "Diagnosis",
+                   labels = c("Benign", "Malignant")) +
+  
+  # Scale y-axis ("Mean Radius" is continuous)
+  scale_y_continuous(name = "Mean Radius",
+                     breaks = seq(0, 30, by = 4))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")+
+  
+  # Theme customization
+  theme(
+    axis.title.x = element_text(family = "mono", color = "red", size = 12),
+    axis.title.y = element_text(family = "serif", color = "red", size = 10),
+    axis.line.x = element_line(linewidth = 1, color = "blue"),
+    axis.line.y = element_line(linewidth = 1, color = "blue"),
+    axis.ticks.y = element_line(linewidth = 5),
+    axis.ticks.length.y = unit(-.2, "cm"),
+    panel.grid.major = element_line(colour = "lightgreen"),
+    panel.grid.minor.y = element_line(colour = "darkgreen"),
+    plot.background = element_rect(fill = "tan"),
+    panel.background = element_rect(fill = "tan2")
+  )
+  
+# Arrange plots in a 1,2 grid
+GBar_Jitter <- plot_grid(GBar, Jitter, labels = c("A", "B"))
+GBar_Jitter
+
+```
+
+4. When visualizing if there is a relationship between the mean smoothness and mean compactness of the tumors, what plot type would be most appropriate? Justify your response by relating back to the type of data we are portraying. Then, create the plot. Make sure to format the plot properly such as labeling the titles and axis. 
+
+Ans`To visualize the relationship between the mean smoothness and mean compactness of tumors, a scatter plot would be most appropriate. Scatter plots are effective for displaying the correlation or relationship between two continuous variables.`
+
+```{r}
+# Scatter plot for mean smoothness vs mean compactness
+ScatterPlot <- ggplot(bCancer, aes(x = smoothness_mean, y = compactness_mean, color = diagnosis)) +
+  
+  # Add points for each data point
+  geom_point(alpha = 0.7) +
+  
+  # Customize colors "red" is for malignant, and "green" is for benign
+  scale_color_manual(values = c("green", "red")) +
+  
+  # Add labels and title to the plot
+  labs(title = "Relationship Between Mean Smoothness and Mean Compactness") +
+   
+  # Scale x-axis 
+  scale_x_continuous(name = "Mean Smoothness",
+                     breaks = seq(0, 0.2, by = .025))+
+  
+  # Scale y-axis
+  scale_y_continuous(name = "Mean Compactness",
+                     breaks = seq(0, 0.5, by = 0.1))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")+
+  
+  # Draw a correlation line using linear regression to show relationship
+  geom_smooth(method = "lm", se = FALSE, linetype = "solid", color = "blue") +
+  
+  # Customize axis labels
+  theme(
+    axis.title.x = element_text(size = 13, color = "black", family = "mono"),
+    axis.title.y = element_text(size = 13, color = "black", family = "mono"),
+    axis.line.x = element_line(linewidth = 1, color = "black"),
+    axis.line.y = element_line(linewidth = 1, color = "black"),
+    axis.ticks.y = element_line(linewidth = 7),
+    axis.ticks.length.y = unit(-.2, "cm"),
+    axis.ticks.x = element_line(linewidth = 7),
+    axis.ticks.length.x = unit(-.2, "cm"),
+    panel.grid.major.x = element_line(colour = "darkgreen"),
+    panel.grid.minor.x = element_line(colour = "darkgreen"),
+    panel.grid.major.y = element_line(colour = "darkgreen"),
+    panel.grid.minor.y = element_line(colour = "darkgreen"),
+    plot.background = element_rect(fill = "tan2"),
+    panel.background = element_rect(fill = "tan")
+  )
+
+# Display the scatter plot
+print(ScatterPlot)
+
+```
+
+```{r}
+# Save figure 1
+ggsave("Defining_aesthetics.png", Defining_aesthetics, height = 12, width = 14)
+
+# Save figure 2
+ggsave("Bar_Hist_Box_Violin.png", Bar_Hist_Box_Violin, height = 12, width = 12)
+
+# Save figure 3
+ggsave("GBar_Jitter.png", GBar_Jitter, height = 10, width = 16)
+
+# Save figure 3
+ggsave("ScatterPlot.png", ScatterPlot, height = 6, width = 8)
+
+```
+
