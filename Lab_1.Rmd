@@ -1,5 +1,5 @@
 ---
-title: "Assignment 1 - Introduction and Wrangling"
+title: "Introduction and Wrangling"
 author: "Vikas Kauhsik"
 date: "September 2023"
 output:
