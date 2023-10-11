@@ -1,5 +1,5 @@
 ---
-title: "Assignment 2 - Visualization"
+title: "Visualization"
 author: "Vikas kaushik"
 date: "October 07 2023"
 output:
