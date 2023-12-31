@@ -1,0 +1,420 @@
+---
+title: "Differential_expression_analysis"
+author: "Vikas Kaushik"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+7. Load relevant R packages.
+
+```{r}
+library(ballgown)
+library (tidyverse)
+library(ggplot2)
+library(RSkittleBrewer)
+library(genefilter)
+library(dplyr)
+library(devtools)
+library (cowplot)
+library(DESeq2)
+library(EnhancedVolcano)
+library(pheatmap)
+
+```
+
+8. Load the phenotype data for the samples stored in  geuvadis_phenodata.csv
+
+```{r}
+# Make sure to chnage the path to 'D:/NGS/chrX_data' where file is located
+setwd('D:/NGS/chrX_data')
+
+# Read the phenotype data into an object
+geuvadis_phenodata <- read.csv("geuvadis_phenodata.csv")
+
+# View the data frame
+class(geuvadis_phenodata)
+
+```
+
+9. Read in the expression data that were calculated by StringTie. Lets's explore a standardized pipeline that can be used to perform standard differential expression analysis.
+
+```{r}
+# Make sure geuvadis_phenodata is a valid data frame, Convert it to a data frame if needed
+geuvadis_phenodata <- as.data.frame(geuvadis_phenodata)
+
+# Create ballgown object
+bg_chrX = ballgown(dataDir = "ballgown", samplePattern = "ERR", pData = geuvadis_phenodata)
+
+```
+
+10. Filter to remove low-abundance genes. 
+
+```{r}
+# Filter genes in bg_chrX with row-wise variance greater than 1
+bg_chrX_filt <- subset(bg_chrX, "rowVars(texpr(bg_chrX)) > 1", genomesubset = TRUE)
+
+```
+
+11. Identify transcripts that show statistically significant differences between groups. 
+
+```{r}
+# Perform differential expression analysis on transcripts, testing for the effect of 'sex' with adjustment for 'population'
+results_transcripts = stattest(bg_chrX_filt, feature = "transcript", covariate = "sex", adjustvars = c("population"), getFC = TRUE, meas = "FPKM")
+
+```
+
+12. Identify genes that show statistically significant differences between groups.
+
+```{r}
+# Perform differential expression analysis on genes, testing for the effect of 'sex' with adjustment for 'population'
+results_genes = stattest(bg_chrX_filt, feature = "gene", covariate = "sex", adjustvars = c("population"), getFC = TRUE, meas = "FPKM")
+
+```
+
+13. Add gene names and gene IDs to the results_transcripts data frame.
+
+```{r}
+# Combine results of transcript-level differential expression analysis with gene names and IDs
+results_transcripts = data.frame(
+  geneNames = ballgown::geneNames(bg_chrX_filt),
+  geneIDs = ballgown::geneIDs(bg_chrX_filt),
+  results_transcripts
+)
+```
+
+14. Sort the results from the smallest P value to the largest.
+
+```{r}
+# Arrange results_transcripts and results_genes data frames based on p-value
+results_transcripts = arrange(results_transcripts, pval)
+results_genes = arrange(results_genes, pval)
+
+```
+
+15. Write the results to csv files.
+
+```{r}
+# Write transcript-level results to a CSV file
+write.csv(results_transcripts, "chrX_transcript_results.csv", row.names = FALSE)
+
+# Write gene-level results to a CSV file
+write.csv(results_genes, "chrX_gene_results.csv", row.names = FALSE)
+
+```
+
+16. Identify transcripts and genes with a q value <0.05:
+
+```{r}
+# Subset transcript-level results with q-value < 0.05
+subset_transcripts = subset(results_transcripts, qval < 0.05)
+
+# Subset gene-level results with q-value < 0.05
+subset_genes = subset(results_genes, qval < 0.05)
+
+```
+
+Chromosome X has 12 transcripts that are differentially expressed between the sexes (using a q value threshold of 0.05), four of which correspond to isoforms of known genes (XIST, KDM6A, TSIX, PNPLA4 and RPS4X). At the gene level, chromosome X has seven differentially expressed genes at the same q value cutoff.
+
+17. Adds touch of tropical flair to our visualizations, making them visually appealing and thematic
+
+```{r}
+# Define a tropical color palette
+tropical = c('darkorange', 'dodgerblue', 'hotpink', 'limegreen', 'yellow')
+
+# Set the color palette for plots
+palette(tropical)
+
+```
+
+18. Show the distribution of gene abundances (measured as FPKM values) across samples, colored by sex.
+
+```{r}
+# Extract FPKM values from ballgown object
+fpkm = texpr(bg_chrX, meas = "FPKM")
+
+# Log2 transformation of FPKM values
+fpkm = log2(fpkm + 1)
+
+geuvadis_phenodata$sex = as.factor(geuvadis_phenodata$sex)
+
+# Create a boxplot with colors representing different sexes
+Figure_1 <- boxplot(fpkm, col = geuvadis_phenodata$sex, las = 2, ylab = 'log2(FPKM+1)')
+
+# Add title
+title(main = "Distribution of FPKM values across the 12 samples")
+
+# Initialize the PNG device
+png("Distribution of FPKM values across the 12 samples.png")
+
+# Save the base R boxplot as a figure
+dev.copy(png, "Distribution of FPKM values across the 12 samples.png")
+
+dev.off()
+
+```
+
+```{r}
+# Create a data frame with 'sex' and 'fpkm' columns
+plot_data <- data.frame(sex = geuvadis_phenodata$sex, fpkm = fpkm[12,])
+
+# Create a new column named "Sample_id" with the values from the row names from plot_data
+plot_data$Sample_id <- rownames(plot_data)
+
+# Remove "FPKM." from the "Sample_id" column using sub function
+plot_data$Sample_id <- sub("FPKM\\.", "", plot_data$Sample_id)
+
+# Remove the original row names
+rownames(plot_data) <- NULL
+
+# Create a boxplot with colors representing different sexes
+Figure_2 <- ggplot(plot_data, aes(x = sex, y = fpkm, fill = sex)) +
+  geom_boxplot() +
+  labs(title = "Distribution of Gene Abundances",
+       x = "Sex",
+       y = "FPKM Values") +
+  scale_fill_manual(values = c('darkorange', 'dodgerblue')) +
+  
+  # Scale x-axis 
+  scale_x_discrete(name = "Gender",
+                   labels = c("Female", "Male")) +
+  
+  # Scale y-axis
+  scale_y_continuous(name = "Fragments Per Kilobase Million",
+                     breaks = seq(0, 5, by = 0.2))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")+
+
+  # Customize axis labels
+  theme(
+    axis.title.x = element_text(size = 13, color = "Red", family = "mono"),
+    axis.title.y = element_text(size = 13, color = "black", family = "mono"),
+    panel.grid.major.x = element_line(colour = "darkgreen"),
+    panel.grid.minor.x = element_line(colour = "darkgreen"),
+    panel.grid.major.y = element_line(colour = "darkgreen"),
+    panel.grid.minor.y = element_line(colour = "darkgreen"),
+    plot.background = element_rect(fill = "tan2"),
+    panel.background = element_rect(fill = "tan")
+  )
+
+
+# Save the boxplot as an image file
+ggsave("Gene_abundance_boxplot.png", Figure_2)
+
+# Display the boxplot
+print(Figure_2)
+
+```
+
+
+19. Make plots of individual transcripts across samples. 
+
+```{r}
+# Get the name of the 12th transcript in the ballgown object (bg_chrX)
+transcript_name <- ballgown::transcriptNames(bg_chrX)[11]
+
+# Get the name of the gene associated with the 12th transcript
+gene_name <- ballgown::geneNames(bg_chrX)[11]
+
+# Create a ggplot scatterplot with jittered points
+Figure_3 <- ggplot(plot_data, aes(x = sex, y = fpkm, color = sex)) +
+  geom_boxplot(width = 0.5) +
+  geom_jitter(width = 0.1, height = 0, size = 3) +
+  labs(title = paste(gene_name, ":", transcript_name),
+       x = "Sex",
+       y = "log2(FPKM+1)",
+       color = "Sex") +
+  # Scale x-axis 
+  scale_x_discrete(name = "Gender",
+                   labels = c("Female", "Male")) +
+  
+  # Scale y-axis
+  scale_y_continuous(name = "Fragments Per Kilobase Million",
+                     breaks = seq(0, 5, by = 0.2))+
+  
+  # Remove legend to create a cleaner appearance
+  theme(legend.position = "none")+
+
+  
+  # Customize axis labels
+  theme(
+    axis.title.x = element_text(size = 13, color = "Red", family = "mono"),
+    axis.title.y = element_text(size = 13, color = "black", family = "mono"),
+    panel.grid.major.x = element_line(colour = "darkgreen"),
+    panel.grid.minor.x = element_line(colour = "darkgreen"),
+    panel.grid.major.y = element_line(colour = "darkgreen"),
+    panel.grid.minor.y = element_line(colour = "darkgreen"),
+    plot.background = element_rect(fill = "tan2"),
+    panel.background = element_rect(fill = "tan")
+  )
+
+# Display the plot
+# Increase the width of the second column (Figure_3)
+FPKM_distributions_in_males_and_females <- plot_grid(Figure_2, Figure_3, labels = c("A", "B"))
+
+
+FPKM_distributions_in_males_and_females
+
+```
+
+```{r}
+# Extract the FPKM values for the specified transcript and gene
+
+transcript_index <- which(ballgown::transcriptNames(bg_chrX) == "NM_012227")
+gene_index <- which(ballgown::geneNames(bg_chrX) == "GTPBP6")
+fpkm_values <- texpr(bg_chrX)[transcript_index, ]
+
+# Create a data frame with relevant data
+plot_data <- data.frame(
+  sex = geuvadis_phenodata$sex,
+  fpkm = fpkm_values,
+  gene = ballgown::geneNames(bg_chrX)[gene_index],
+  transcript = ballgown::transcriptNames(bg_chrX)[transcript_index]
+)
+
+# Filter data for the specified gene and transcript
+filtered_data <- subset(plot_data, gene == "GTPBP6" & transcript == "NM_012227")
+
+# Create the box-and-whisker plot
+Specified_transcript_and_gene <- ggplot(filtered_data, aes(x = sex, y = fpkm, fill = sex)) +
+  geom_boxplot() +
+  labs(title = paste("FPKM Distributions for Transcript NM_012227 (Gene GTPBP6)"),
+       x = "Sex", y = "log2(FPKM+1)",
+       fill = "Sex") +
+  theme_minimal()
+
+Specified_transcript_and_gene
+```
+
+20.Visualization of the assembled transcripts is done with the plotTranscripts function. Transcripts or exons can be colored by expression level. This plot colors transcripts by expression level
+
+```{r}
+# Plot transcripts for a specific gene in sample any of the sample
+
+gene_index <- 1729
+gene_id <- ballgown::geneIDs(bg_chrX)[gene_index]
+
+# Create a PNG file with specified dimensions
+png(file = "Visualization of the assembled transcripts.png", width = 1200, height = 600)
+
+# Plot transcripts for two samples
+plotTranscripts(gene_id, bg_chrX, 
+  samples = c('ERR188044', 'ERR188104', 'ERR188234', 'ERR188245', 'ERR188257', 'ERR188273', 'ERR188337','ERR188383', 'ERR188401', 'ERR188428', 'ERR188454', 'ERR204916'),
+  colorby = "transcript", meas = "FPKM", legend = TRUE, labelTranscripts = FALSE,
+  main = paste("Gene ", gene_id, " Expression across the diffrent Samples"),
+  blackBorders = TRUE, log = FALSE, logbase = 2, customCol = NULL, customOrder = NULL)
+
+# Save the plot
+dev.off()
+
+```
+Sometimes several very similar transcripts are assembled for the same gene, which might cause expression estimates for those transcripts to be unreliable: statistically, it can very difficult or impossible to tell which of two very similar transcript a read came from. This means differential expression results might also be unreliable. As a preliminary attempt at addressing this issue, Ballgown provides some simple transcript clustering functions. The idea is that similar assembled transcripts can be grouped together in clusters, and differential expression analysis could be performed on the cluster, whose expression measurement aggregates the expression estimates of the transcripts that compose it.
+
+```{r}
+# group a gene’s assembled transcripts into clusters
+clusterTranscripts(gene_id, bg_chrX, k = 2, method = c("kmeans"))
+
+#visualize the transcript clusters:
+plotLatentTranscripts(gene_id, bg_chrX, k=2, method='kmeans', returncluster=FALSE)
+
+```
+
+
+21. We can also plot the average expression levels for all transcripts of a gene within different groups using the plotMeans function. We need to specify which gene to plot, which Ballgown object to use and which variable to group by. As an example, plot the gene MSTRG.56, using the following command.
+
+```{r}
+# Define the gene whose transcripts will be plotted.
+Gene_id <- 'MSTRG.56'
+
+# Create a plot of means grouped by 'sex'
+plotMeans(Gene_id, bg_chrX_filt, groupvar = "sex", colorby = c("transcript"), legend = FALSE)
+
+```
+
+
+```{r}
+# Create an Volcano plot
+EnhancedVolcano(
+  results_genes,
+  lab = rownames(results_genes),
+  x = 'fc',
+  y = 'pval',
+  xlim = c(-4, 4),
+  ylim = (c(0, 10)),
+  title = "Volcano Plot (p-value < 0.05)")
+  
+```
+
+
+
+```{r}
+# Assuming bg_chrX_filt is your Ballgown object
+expression_matrix <- as.matrix(texpr(bg_chrX_filt))
+
+# Get the row names of the top N genes based on maximum expression values
+top_genes_ids <- names(sort(apply(expression_matrix, 1, max), decreasing = TRUE)[1:10])
+
+# Extract expression data for the top N genes
+top_expression <- expression_matrix[top_genes_ids, ]
+
+# Create a heatmap using the numeric expression matrix of top genes
+heatmap(top_expression, 
+        Colv = NA,    # To disable hierarchical clustering of columns
+        Rowv = NA,    # To disable hierarchical clustering of rows
+        scale = "row", # Scale rows (genes)
+        main = paste("Highly Expressed Genes Heatmap")
+)
+```
+
+```{r}
+# Extract gene names corresponding to the top gene IDs
+matching_gene_names <- results_transcripts$geneIDs[results_transcripts$id %in% top_genes_ids]
+
+# Extract expression data for the specified genes
+expression_data_to_plot <- expression_matrix[top_genes_ids, ]
+
+# Create a heatmap using the numeric expression matrix of specified genes
+heatmap(expression_data_to_plot, 
+        Colv = NA,    # To disable hierarchical clustering of columns
+        Rowv = NA,    # To disable hierarchical clustering of rows
+        scale = "row", # Scale rows (genes)
+        main = "Selected Genes Heatmap",
+        labRow = matching_gene_names  # Use matching gene names as row labels
+)
+
+```
+
+
+
+```{r}
+
+# Get the row names of the top N genes based on maximum expression values
+top_genes_ids <- names(sort(apply(expression_matrix, 1, max), decreasing = TRUE)[1:20])
+
+# Extract gene names corresponding to the top gene IDs
+matching_gene_names <- results_transcripts$geneIDs[results_transcripts$id %in% top_genes_ids]
+
+# Extract expression data for the specified genes
+expression_data_to_plot <- expression_matrix[top_genes_ids, ]
+
+# Set up colors for the gender annotations
+colors <- c("Blue", "Pink") # Blue for Male and Pink for female
+
+# Expand 'anno_color' to match the number of columns in 'heatmap_data'
+anno_color_expanded <- data.frame(Annotation = matching_gene_names)
+
+# Set up colors for the annotations
+colors <- c("Blue", "Pink")
+
+# Creating a heatmap with the expanded 'anno_color' and specified colors
+pheatmap(expression_data_to_plot,
+         annotation_col = anno_color_expanded,
+         annotation_colors = list(Annotation = colors),
+         scale = "row",
+         main = "20 most variable attributes",
+         cutree_rows = 2,
+         cutree_cols = 3)
+
+```
+
