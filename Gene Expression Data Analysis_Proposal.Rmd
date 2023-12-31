@@ -6,7 +6,7 @@ output:
   pdf_document: default
   html_document: default
 ---
-7. Load relevant R packages.
+Load relevant R packages.
 
 ```{r}
 library(ballgown)
@@ -23,7 +23,7 @@ library(pheatmap)
 
 ```
 
-8. Load the phenotype data for the samples stored in  geuvadis_phenodata.csv
+Load the phenotype data for the samples stored in  geuvadis_phenodata.csv
 
 ```{r}
 # Make sure to chnage the path to 'D:/NGS/chrX_data' where file is located
@@ -37,7 +37,7 @@ class(geuvadis_phenodata)
 
 ```
 
-9. Read in the expression data that were calculated by StringTie. Lets's explore a standardized pipeline that can be used to perform standard differential expression analysis.
+Read in the expression data that were calculated by StringTie. Lets's explore a standardized pipeline that can be used to perform standard differential expression analysis.
 
 ```{r}
 # Make sure geuvadis_phenodata is a valid data frame, Convert it to a data frame if needed
@@ -48,7 +48,7 @@ bg_chrX = ballgown(dataDir = "ballgown", samplePattern = "ERR", pData = geuvadis
 
 ```
 
-10. Filter to remove low-abundance genes. 
+Filter to remove low-abundance genes. 
 
 ```{r}
 # Filter genes in bg_chrX with row-wise variance greater than 1
@@ -56,7 +56,7 @@ bg_chrX_filt <- subset(bg_chrX, "rowVars(texpr(bg_chrX)) > 1", genomesubset = TR
 
 ```
 
-11. Identify transcripts that show statistically significant differences between groups. 
+Identify transcripts that show statistically significant differences between groups. 
 
 ```{r}
 # Perform differential expression analysis on transcripts, testing for the effect of 'sex' with adjustment for 'population'
@@ -64,7 +64,7 @@ results_transcripts = stattest(bg_chrX_filt, feature = "transcript", covariate =
 
 ```
 
-12. Identify genes that show statistically significant differences between groups.
+Identify genes that show statistically significant differences between groups.
 
 ```{r}
 # Perform differential expression analysis on genes, testing for the effect of 'sex' with adjustment for 'population'
@@ -72,7 +72,7 @@ results_genes = stattest(bg_chrX_filt, feature = "gene", covariate = "sex", adju
 
 ```
 
-13. Add gene names and gene IDs to the results_transcripts data frame.
+Add gene names and gene IDs to the results_transcripts data frame.
 
 ```{r}
 # Combine results of transcript-level differential expression analysis with gene names and IDs
@@ -83,7 +83,7 @@ results_transcripts = data.frame(
 )
 ```
 
-14. Sort the results from the smallest P value to the largest.
+Sort the results from the smallest P value to the largest.
 
 ```{r}
 # Arrange results_transcripts and results_genes data frames based on p-value
@@ -92,7 +92,7 @@ results_genes = arrange(results_genes, pval)
 
 ```
 
-15. Write the results to csv files.
+Write the results to csv files.
 
 ```{r}
 # Write transcript-level results to a CSV file
@@ -103,7 +103,7 @@ write.csv(results_genes, "chrX_gene_results.csv", row.names = FALSE)
 
 ```
 
-16. Identify transcripts and genes with a q value <0.05:
+Identify transcripts and genes with a q value <0.05:
 
 ```{r}
 # Subset transcript-level results with q-value < 0.05
@@ -127,7 +127,7 @@ palette(tropical)
 
 ```
 
-18. Show the distribution of gene abundances (measured as FPKM values) across samples, colored by sex.
+Show the distribution of gene abundances (measured as FPKM values) across samples, colored by sex.
 
 ```{r}
 # Extract FPKM values from ballgown object
@@ -208,7 +208,7 @@ print(Figure_2)
 ```
 
 
-19. Make plots of individual transcripts across samples. 
+Make plots of individual transcripts across samples. 
 
 ```{r}
 # Get the name of the 12th transcript in the ballgown object (bg_chrX)
@@ -287,7 +287,7 @@ Specified_transcript_and_gene <- ggplot(filtered_data, aes(x = sex, y = fpkm, fi
 Specified_transcript_and_gene
 ```
 
-20.Visualization of the assembled transcripts is done with the plotTranscripts function. Transcripts or exons can be colored by expression level. This plot colors transcripts by expression level
+Visualization of the assembled transcripts is done with the plotTranscripts function. Transcripts or exons can be colored by expression level. This plot colors transcripts by expression level
 
 ```{r}
 # Plot transcripts for a specific gene in sample any of the sample
@@ -321,7 +321,7 @@ plotLatentTranscripts(gene_id, bg_chrX, k=2, method='kmeans', returncluster=FALS
 ```
 
 
-21. We can also plot the average expression levels for all transcripts of a gene within different groups using the plotMeans function. We need to specify which gene to plot, which Ballgown object to use and which variable to group by. As an example, plot the gene MSTRG.56, using the following command.
+We can also plot the average expression levels for all transcripts of a gene within different groups using the plotMeans function. We need to specify which gene to plot, which Ballgown object to use and which variable to group by. As an example, plot the gene MSTRG.56, using the following command.
 
 ```{r}
 # Define the gene whose transcripts will be plotted.
