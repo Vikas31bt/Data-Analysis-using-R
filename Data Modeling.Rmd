@@ -1,0 +1,174 @@
+---
+title: "Assignment 3 - Data Modeling"
+author: "Vikas Kaushik"
+date: "19th October 2023"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+## Assignment 3 - Data Modeling 
+
+```{r}
+# Call all the important libraries
+
+library(tidyselect)
+library(ggplot2)
+library (cowplot)
+library (tidyverse)
+
+```
+
+
+The dataset can be accessed here: https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29
+
+The phenotype attributions are as follows: 
+
+1) ID number
+2) Diagnosis (M = malignant, B = benign)
+3-32)
+
+Ten real-valued features are computed for each cell nucleus:
+
+a) radius (mean of distances from center to points on the perimeter)
+b) texture (standard deviation of gray-scale values)
+c) perimeter
+d) area
+e) smoothness (local variation in radius lengths)
+f) compactness (perimeter^2 / area - 1.0)
+g) concavity (severity of concave portions of the contour)
+h) concave points (number of concave portions of the contour)
+i) symmetry
+j) fractal dimension ("coastline approximation" - 1)
+
+Here is some code to read in the dataset
+
+```{r}
+# Read the CSV file "breastCancer.csv" into a object bCancer
+bCancer <- read.csv("breastCancer.csv", header = T, stringsAsFactors = T)
+
+# Display the first 5 rows of the bCancer data frame
+head(bCancer, 5)
+
+```
+
+
+1. Draw a histogram and a qqplot of the continuous variable `texture_mean`. What is your interpretation of the qqplot? Try applying a logarithmic transformation to the variable and justify whether you will be proceeding with the transformed or untransformed data when running your linear model. 
+
+`As the normality of the data has improved after the log transformation, so I would proceed with transformed data as it is going to be more appropriate for running a linear model.`
+
+> Interpretation of QQ plot: The points deviate from the diagonal line, suggesting that the data is not perfectly normally distributed.
+
+```{r}
+# Draw a histogram
+plot_1 <-  ggplot(bCancer, aes(x = texture_mean)) +
+  geom_histogram(binwidth = 2, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of texture_mean",
+       x = "texture_mean",
+       y = "Frequency")
+
+# Create a QQ plot
+qq_plot_1 <- ggplot(bCancer, aes(sample = texture_mean)) +
+  stat_qq() +
+  labs(title = "QQ Plot of texture_mean")
+
+
+# Apply logarithmic transformation
+bCancer$log_texture_mean <- log2(bCancer$texture_mean)
+
+# Draw a histogram of the transformed variable
+plot_2 <- ggplot(bCancer, aes(x = log_texture_mean)) +
+  geom_histogram(binwidth = 0.2, fill = "green", color = "black", alpha = 0.7) +
+  labs(title = "Histogram after log transformation",
+       x = "log(texture_mean)",
+       y = "Frequency")
+
+
+# Create a QQ plot with transformed varaible
+qq_plot_2 <- ggplot(bCancer, aes(sample = log_texture_mean)) +
+  stat_qq() +
+  labs(title = "QQ Plot after log transformation")
+
+# Arrange plots in a 2,2 grid
+
+Histogram <- plot_grid(plot_1, plot_2, labels = c("A", "C"))
+QQPlot <- plot_grid(qq_plot_1, qq_plot_2, labels = c("B", "D"))
+
+Result <- plot_grid (Histogram, QQPlot, nrow = 2)
+
+# Visualise the plot
+Result
+
+```
+
+
+2. Run a linear model with `texture_mean` as a function of `area_mean`. Are the variables significantly associated with each other? 
+
+`The linear model indicates a statistically significant positive association between area_mean and texture_mean. However, the R-squared value suggests that area_mean explains only a small portion of the variability in texture_mean. The model equation for the linear regression model is:`
+
+> texture_mean = 0.003924 * area_mean + 16.72
+
+```{r}
+# Run a linear model
+model <- lm(texture_mean ~ area_mean, data = bCancer)
+
+# Print summary statistics
+summary(model)
+
+
+# intercept = 16.72 ((If area_mean = 0, still the price would be 16.72)
+# slope  =  0.003924 (If area_mean increase by 1 unit, texture_mean would increase by 0.003924 unit
+# Both coefficients are highly statistically significant with p-values much smaller than 0.05.
+# 10.31% of the variance in texture_mean is explained by area_mean
+
+```
+
+3. What is the difference between the `Multiple R-squared` value and the `Adjusted R-squared` value? Which one is most appropriate in this current analysis? 
+
+> The Multiple R-squared and Adjusted R-squared are both measures of how well the independent variable(area_mean) explain the variability in the dependent variable (texture_mean) in a regression model. Multiple R-squared represents the proportion of the variance in the dependent variable that is explained by the independent variable in our model. A higher value indicates a better fit of the model to the data. 
+
+> Adjusted R-squared adjusts the Multiple R-squared for the number of predictors in the model. It penalizes the addition of unnecessary predictors that do not contribute significantly to explaining the dependent variable. It provides a more accurate indication of the model's goodness of fit, especially when comparing models with different numbers of predictors.
+
+In the context of our analysis:
+
+Multiple R-squared (R²): 0.1031   
+Adjusted R-squared: 0.1015
+
+> The Adjusted R-squared is slightly smaller than the Multiple R-squared because it accounts for the fact that we have one predictor in the model. In this case, the Adjusted R-squared is more appropriate for assessing the goodness of fit, especially when comparing models with different numbers of predictors. So, in summary, the Adjusted R-squared is often considered more appropriate for model evaluation in situations where we have multiple predictors. It penalizes the model for adding variables that do not improve the fit, providing a more conservative measure of goodness of fit
+
+
+
+4. Visualize the linear model. Include the data points from the original data and the line for the linear model. Include the formula for the equation in the title of the plot. 
+
+
+```{r}
+
+# Scatter plot with linear regression line
+linear_model <- ggplot(bCancer, aes(x = area_mean, y = texture_mean)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red", formula = y ~ x) +
+  labs(title = "Linear Regression: Texture_mean ~ Area_mean", 
+    subtitle = "Model Equation: texture_mean = 0.003924 * area_mean + 16.72")+
+   # Scale x-axis 
+  scale_x_continuous(name = "Area Mean",
+                     breaks = seq(0, 2500, by = 400))+
+  
+  # Scale y-axis
+  scale_y_continuous(name = "Texture Mean",
+                     breaks = seq(0, 50, by = 10))+
+  # Customize the plot
+  theme(
+    axis.title.x = element_text(size = 13, color = "blue", family = "mono"),
+    axis.title.y = element_text(size = 13, color = "blue", family = "mono"),
+    plot.background = element_rect(fill = "tan2"),
+    panel.background = element_rect(fill = "tan")
+  )
+
+# Display the scatter plot
+print(linear_model)
+  
+
+```
+
+
+

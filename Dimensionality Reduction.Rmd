@@ -1,0 +1,191 @@
+---
+title: "Assignment 4 - Dimensionality Reduction"
+author: "Vikas Kaushik"
+date: "17th November 2023"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+The dataset can be accessed here: https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29
+
+The phenotype attributions are as follows: 
+
+1) ID number
+2) Diagnosis (M = malignant, B = benign)
+3-32)
+
+Ten real-valued features are computed for each cell nucleus:
+
+a) radius (mean of distances from center to points on the perimeter)
+b) texture (standard deviation of gray-scale values)
+c) perimeter
+d) area
+e) smoothness (local variation in radius lengths)
+f) compactness (perimeter^2 / area - 1.0)
+g) concavity (severity of concave portions of the contour)
+h) concave points (number of concave portions of the contour)
+i) symmetry
+j) fractal dimension ("coastline approximation" - 1)
+
+Import the crucial libraries!
+
+```{r, warning=FALSE}
+# tidyverse: Collection of packages for data manipulation and visualization
+library(tidyverse)
+
+# cowplot: Allows for the creation of complex plots by combining multiple ggplots
+library(cowplot)
+
+# gridExtra: Extends the functionality of grid graphics for arranging multiple plots
+library(gridExtra)
+
+# ggfortify: Enhances the visualization of statistical models using ggplot2
+library(ggfortify)
+
+# ggplot2: Grammar of Graphics for creating versatile and customizable plots
+library(ggplot2)
+
+```
+
+Here is some code to read in the dataset
+
+```{r}
+# Read in the breast cancer dataset from the "breastCancer.csv" file with headers
+bCancer <- read.csv("breastCancer.csv", header = TRUE, stringsAsFactors = TRUE)
+
+# Display summary statistics of the dataset
+summary(bCancer)
+
+# Display the first few rows of the dataset
+head(bCancer)
+
+```
+
+1. Run a principal component analysis on the numeric variables of the bCancer dataset (excluding the ID number and Diagnosis columns). How many principal components are there? `30`
+
+```{r}
+# Exclude ID and Diagnosis columns from the numeric variables
+numeric_variables <- bCancer[, 3:ncol(bCancer)]
+
+# Remove columns with missing values
+clean_numeric_variables <- numeric_variables[, colSums(is.na(numeric_variables)) == 0]
+
+# Perform principal component analysis
+pca_can <- prcomp(clean_numeric_variables)
+
+# Check the summary to see how many principal components there are
+summary_info <- summary(pca_can)
+
+# Extract the count of principal components
+pcom <- sum(summary_info$sdev > 0)
+
+# Print the count of principal components
+print(pcom)
+
+```
+2. Visualize the percent variance explained by each component. How much of the total variance does the first and second components explain together? `Cumulative Variance (PC1 & PC2): 99.8221161374172 %`
+
+```{r}
+# Compute variance from the squared standard deviations
+pca_can_var <- pca_can$sdev^2
+
+# Extract the percent variance explained by each component
+variance_explained <- pca_can_var / sum(pca_can_var) * 100
+
+# Calculate the cumulative variance
+cumulative_var <- cumsum(variance_explained)
+
+# Print the cumulative variance explained by the first and second components
+print(paste("Cumulative Variance (PC1 & PC2):", cumulative_var[2], "%"))
+
+# Set up a layout for multiple plots
+par(mfrow = c(1, 2))
+
+# Plot the scree plot
+plot(variance_explained, type = 'b', main = "Scree Plot",
+     xlab = "Principal Component", ylab = "Percent Variance Explained")
+
+# Plot the cumulative variance plot
+plot(cumulative_var, 
+     xlab = "Principal Components", 
+     ylab = "Cumulative Proportion of Variance Explained",
+     main = "Cumulative Variance Plot")
+
+```
+3. Visualize the PCA on a point plot with the samples colored according to their diagnosis. How do these two groups separate along PC1 and PC2? `PC1 has a large standard deviation (666.170) and explains a substantial proportion of the variance (98.2%). This indicates that PC1 captures the primary source of variability in our data. PC2 has a smaller standard deviation (85.49912) but still contributes significantly to the variance (1.6%). Given that PC1 explains the majority of the variance, it makes sense to focus on the distribution along PC1 in our visualization. The spread of "red" points along the x-axis and the concentration of "blue" points towards the positive side of PC1 aligns well with the idea that PC1 might not be a strong discriminator for Malignant cases but is more characteristic of Benign cases. Overall, our PCA results suggest that PC1 is the most important principal component for distinguishing between Malignant and Benign cases in our data.`
+
+```{r}
+# Extract the scores from PCA
+pca_scores <- as.data.frame(pca_can$x)
+
+# Add the Diagnosis column to the scores dataframe
+pca_scores$Diagnosis <- bCancer$diagnosis
+
+# Plot the point plot
+plot(pca_scores$PC1, pca_scores$PC2, 
+     col = ifelse(pca_scores$Diagnosis == "M", "red", "blue"),
+     pch = 16, # Use solid dots
+     xlab = "PC 1",
+     ylab = "PC 2",
+     main = "PCA on a point plot")
+
+# Add legend
+legend("topright", legend = c("Malignant", "Benign"),
+       col = c("red", "blue"), pch = 16, cex = 0.8)
+
+# Add grid lines for better visualization
+abline(h = 0, v = 0, col = "gray", lty = 2)
+
+```
+4. What are the 10 variables most strongly contributing to the positive values in PC1? 
+
+```{r}
+# Extract the loadings from PCA
+loadings_pc1 <- pca_can$rotation[, 1]
+
+# Get the top 10 contributing variables to PC1
+top10_contributing_variables <- names(sort(abs(loadings_pc1), decreasing = TRUE)[1:10])
+
+# Get the indices of the top 10 positive loadings
+top_positive_loadings_indices <- order(loadings_pc1, decreasing = TRUE)[1:10]
+
+# Extract the variable names corresponding to the top positive loadings
+top10_contribut_posvalues <- colnames(numeric_variables)[top_positive_loadings_indices]
+
+# Print the top 10 variables with the strongest contributions to PC1
+cat("Top 10 variables with strongest contributions to PC1:", 
+    paste(top10_contributing_variables, collapse = "\n"))
+
+# Print the top 10 variables with the strongest positive contributions to PC1
+cat("\nTop 10 variables with positive contributions to PC1:", 
+    paste(top10_contribut_posvalues, collapse = "\n"))
+
+# Visualize the contribution of each variable to PC1
+autoplot(pca_can, 
+         data = bCancer[, c(3:ncol(bCancer))], # Include only numeric variables
+         size = 0.1,
+         alpha = 0.1,
+         loadings = TRUE,
+         loadings.colour = "blue",
+         loadings.label = TRUE) +
+  geom_point(aes(color = bCancer$diagnosis), size = 2, alpha = 0.3) +
+  scale_color_manual(values = c("M" = "red", "B" = "blue")) +
+  theme_minimal()
+
+```
+
+```{r}
+# Display the names of the components in the PCA object
+names(pca_can)
+
+# Summarize the PCA results
+summary(pca_can)
+
+```
+>sdev: Standard deviations of the principal components. This represents the amount of variance each principal component captures.
+>rotation: The matrix of variable loadings. It shows the correlation between the original variables and the principal components.
+>center: The centering values used in the PCA.
+>scale: The scaling values used in the PCA.
+>x: The matrix of scores. It represents the transformed data in the principal component space.
+

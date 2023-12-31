@@ -1,0 +1,248 @@
+---
+title: "Assignment 5 - Clustering and Gene Expression"
+author: "Vikas Kaushik"
+date: "November 2023"
+output:
+  pdf_document: 
+    keep_tex: yes
+  html_document: default
+  always_allow_html: true
+---
+
+This exercise continues from the Week 11's practice problems. Here is the same code from class to get you started: Use the following code to download the `parathyroidSE` package. This package provides RangedSummarizedExperiment objects of read counts in genes and exonic parts for paired-end RNA-Seq data from experiments on primary cultures of parathyroid tumors.
+
+The sequencing was performed on tumor cultures from 4 patients at 2 time points over 3 conditions (DPN, OHT and control). The data were presented in the article "Evidence of a Functional Estrogen Receptor in Parathyroid Adenomas" By Haglund F. The raw sequencing data provided by NCBI Gene Expression Omnibus is under accession number `GSE37211`.
+
+```{r}
+# ggplot2 for creating customized plots
+library(ggplot2)
+
+# DESeq2 for RNA-seq data analysis
+library(DESeq2)
+
+# EnhancedVolcano for volcano plots
+library(EnhancedVolcano)
+
+# pheatmap for creating heatmap visualizations
+library(pheatmap)
+
+# Load the "parathyroidSE" package for analyzing single-cell RNA-seq data from parathyroid glands
+library(parathyroidSE)
+
+# Load heatmaply package
+library(heatmaply)
+
+```
+
+First, build the object using count and sample data. 
+
+```{r}
+# Load the paired-end RNA-Seq dataset
+data("parathyroidGenesSE")
+
+# save count data into object
+para <- assay(parathyroidGenesSE)
+
+# save sample data into object
+sample <- colData(parathyroidGenesSE)
+
+# save these sample names into columns
+colnames(para) <- colData(parathyroidGenesSE)$run
+
+# Print the dimensions of count object
+dim(para)
+
+# Print the dimensions of sample object
+dim(sample)
+
+```
+
+Next, we can construct our DESeq object. We will specify a function that tests for the effect of treatment while controlling for the patient.
+
+```{r}
+# Create a DESeqDataSet object
+para_object <- DESeqDataSetFromMatrix(
+  countData = para,
+  colData = sample,
+  design = ~ patient + treatment)
+
+
+# Access and print the column data of the DESeqDataSet
+colData(para_object)
+
+```
+
+Finally, let's subset from the full dataset only data from after 48 hours of treatment.
+
+```{r}
+# Subset the data for samples after 48 hours of treatment
+para_object_subset <- para_object[ , para_object$time == "48h" ]
+
+# Display the subsetted DESeqDataSet
+para_object_subset
+
+```
+
+1. Filter out the genes that contain 2 or less columns of count data. How many feature genes and samples are in this filtered subset?
+
+```{r}
+# Filter out genes with 2 or less counts
+para_object_filtered <- para_object_subset[rowSums(counts(para_object_subset)) > 2,]
+
+# Number of feature genes after filtering
+num_feature_genes_filtered <- nrow(counts(para_object_filtered))
+
+# Print the result
+cat("Number of feature genes after filtering:", num_feature_genes_filtered, "\n")
+
+```
+
+2. Run the differential expression function to fit this object using generalized linear models.
+
+```{r}
+# Run DESeq to fit the model
+dds <- DESeq(para_object_filtered)
+
+# Save the output as an object
+results_object <- results(dds)
+
+# Explore the results
+head(results_object)
+
+```
+
+3. See the code below to get results for differentially expressed genes between the control and OHT treatment. Do the same for the DPN group. What are the top 5 differentially-expressed genes in the DPN group? How many genes are up- and down-regulated?
+
+```{r}
+# differentially expressed genes between control and OHT treatment
+results_OHT <- results(dds, contrast = c("treatment", "Control", "OHT"))
+
+# Differentially expressed genes between control and DPN treatment
+results_DPN <- results(dds, contrast = c("treatment", "Control", "DPN"))
+
+# Extract top 5 differentially expressed genes in the DPN group
+top_genes_DPN <- head(results_DPN[order(results_DPN$pvalue),], 5)
+
+# Print the top 5 differentially expressed genes in the DPN group
+print("Top 5 differentially expressed genes in the DPN group:")
+print(top_genes_DPN)
+
+# Count the number of up- and down-regulated genes in the DPN group
+upregulated_DPN <- sum(top_genes_DPN$log2FoldChange > 0)
+downregulated_DPN <- sum(top_genes_DPN$log2FoldChange < 0)
+
+# Print the number of up- and down-regulated genes in the DPN group
+cat("Number of upregulated genes in the DPN group:", upregulated_DPN, "\n")
+cat("Number of downregulated genes in the DPN group:", downregulated_DPN, "\n")
+
+```
+
+4. Compare the gene expression across treatments of the gene with the highest log-fold change.
+
+Hint: use `which.max()` to get the highest value for log-fold change.
+
+```{r,  results='asis'}
+# Set a seed for reproducibility
+set.seed(23)
+
+# Extract and plot normalized counts for the gene of interest across different treatments
+plotCounts(dds, gene = which.max(results_OHT$log2FoldChange), intgroup = "treatment")
+
+```
+
+5. Create a volcano plot of the differentially-expressed genes only in the DPN treatment using a p-value cutoff of 0.05.
+
+```{r,  results='asis'}
+# Filter genes with significant p-values
+significant_genes <- results_DPN[results_DPN$pvalue < 0.05, ]
+
+# Create an Volcano plot
+EnhancedVolcano(
+  significant_genes,
+  lab = rownames(significant_genes),
+  x = 'log2FoldChange',
+  y = 'padj',
+  xlim = c(-4, 4),
+  ylim = (c(0, 10)),
+  title = "Volcano Plot (p-value < 0.05)"
+)
+
+```
+`Volcano plot (statistics), showing Transcriptomics data. Fold-change on (x-axis) and statistical significance (-log10 of p-value) on y-axis. The dashed grey-line shows where p = 0.05 with points above the line having p < 0.05 and points below the line having p > 0.05. This plot is colored such that those points having a fold-change less than 2 (log2 = 1) are shown in gray.`
+
+6. This last question uses the breast cancer tumour dataset. The dataset can be accessed here: `https://archive.ics.uci.edu/ml/datasets/Breast+Cancer+Wisconsin+%28Diagnostic%29`
+
+The phenotype attributions are as follows: 
+
+1) ID number
+2) Diagnosis (M = malignant, B = benign)
+3-32)
+
+Ten real-valued features are computed for each cell nucleus:
+
+a) radius (mean of distances from center to points on the perimeter)
+b) texture (standard deviation of gray-scale values)
+c) perimeter
+d) area
+e) smoothness (local variation in radius lengths)
+f) compactness (perimeter^2 / area - 1.0)
+g) concavity (severity of concave portions of the contour)
+h) concave points (number of concave portions of the contour)
+i) symmetry
+j) fractal dimension ("coastline approximation" - 1)
+
+Here is some code to read in the dataset
+
+```{r}
+# Read in the breast cancer dataset from the "breastCancer.csv" file with headers
+bCancer <- read.csv("breastCancer.csv", header = TRUE, stringsAsFactors = TRUE)
+
+```
+
+Create a heatmap of the top 10 most variable attributes. Discuss any trends you observe in the data in 5 sentences or less.
+```{r}
+# Extracting variances for each attribute from the 'bCancer' dataset
+variances <- apply(bCancer[, 3:ncol(bCancer)], 2, var)
+
+# Identifying the top 10 attributes based on variance
+top_10_attributes <- names(sort(variances, decreasing = TRUE)[1:10])
+
+# Subsetting the dataset to include only the top 10 attributes
+top_10_data <- bCancer[, top_10_attributes, drop = FALSE]
+
+# Creating a heatmap with the top 10 attributes
+heatmap_data <- data.matrix(top_10_data)
+
+```
+
+
+
+```{r,  results='asis'}
+# Set up colors for the Diagnosis annotations
+colors <- c("green", "red")  # Green for benign (B) and Red for malignant (M)
+
+# Expand 'anno_color' to match the number of columns in 'heatmap_data'
+anno_color_expanded <- data.frame( Diagnosis = rep(bCancer$diagnosis, times = ncol(heatmap_data)))
+
+# Creating a heatmap with the expanded 'anno_color' and specified colors
+pheatmap(heatmap_data, 
+         annotation_col = anno_color_expanded, 
+         annotation_colors = list(Diagnosis = colors), 
+         scale = "row",
+         main = "10 most variable attributes",
+         cutree_rows = 2, 
+         cutree_cols = 3)
+
+```
+`Analyzing the dataset revealed increasing trends in features like area and perimeter, with notable contributions to malignancy from highly correlated attributes such as area_worst and area_mean.`
+
+```{r, results='asis'}
+# Plotting correlation heatmap
+heatmaply_cor(x = cor(heatmap_data), xlab = "Features", ylab = "Features", k_col = 2, k_row = 2)
+
+```
+
+Hint: this dataset is most similar to microarray data, not RNA-seq data.
+Hint: you may need to use `data.matrix` from base R to convert the original dataframe (minus select columns) to a matrix. 
+
+This is a tough question! Take your time, and move through the steps slowly. First, get the top 10 attributes, then make a heatmap that is coloured by diagnosis. 
