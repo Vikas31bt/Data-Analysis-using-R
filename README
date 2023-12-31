@@ -1,4 +1,3 @@
-# Data-Analysis-using-R
 Bioconductor is a rich repository of bioinformatics software packages for the R programming language, primarily focused on the analysis and comprehension of genomic data. Some major R and Bioconductor packages include:
 	DESeq2: Used for differential gene expression analysis.
 	limma: Employs linear models for microarray data analysis.
