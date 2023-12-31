@@ -1,13 +1,13 @@
 ---
-title: "Assignment 3 - Data Modeling"
+title: "Data Modeling"
 author: "Vikas Kaushik"
-date: "19th October 2023"
+date: "2023"
 output:
   pdf_document: default
   html_document: default
 ---
 
-## Assignment 3 - Data Modeling 
+## Data Modeling 
 
 ```{r}
 # Call all the important libraries
