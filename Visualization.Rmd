@@ -1,13 +1,13 @@
 ---
-title: "Assignment 2 - Visualization"
+title: "Visualization"
 author: "Vikas kaushik"
-date: "October 07 2023"
+date: "2023"
 output:
   pdf_document: default
   html_document: default
 ---
 
-## Assignment 2 - Visualization
+## Data Visualization
 ```{r}
 # get the path of the current working directory
 getwd()
